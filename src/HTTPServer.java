@@ -41,21 +41,27 @@ public class HTTPServer extends Thread {
 				BufferedReader reader = new BufferedReader(new InputStreamReader(client.getInputStream()));
 				
 				String message = reader.readLine();
-				System.out.println(message);
 				if (message != null && !message.equals("")) {
 					String[] data = message.split(" ");
 					if (data.length == 3 && data[0].equals("GET") && data[2].equals("HTTP/1.1")) {
 						String actualMessage = new String(message);
 						while (actualMessage != null && !actualMessage.equals("")) {
 							actualMessage = reader.readLine();
-							message += actualMessage;
+							message += "\n" + actualMessage;
 						}
+						
+						System.out.print("\n" + message);
 						
 						String fileRequested = URLDecoder.decode(data[1]);
 						System.out.println("File requested: " + fileRequested);
 						
+						OutputStream out = client.getOutputStream();
 						if (!fileRequested.endsWith(".html")) {
 							System.out.println("Only HTML files allowed");
+							String s = "HTTP/1.1 403 FORBIDDEN";
+							out.write(s.getBytes());
+							out.flush();
+							out.close();
 							continue;
 						}
 						
@@ -79,7 +85,6 @@ public class HTTPServer extends Thread {
 						
 						res += lines;
 						
-						OutputStream out = client.getOutputStream();
 						out.write(res.getBytes());
 						out.flush();
 						out.close();
