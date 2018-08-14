@@ -67,7 +67,7 @@ public class HTTPServer extends Thread {
 							res = "HTTP/1.1 404 NOT FOUND\n";
 						else {
 							res = "HTTP/1.1 200 OK\n";
-							lines = String.join("", Files.readAllLines(f.toPath()));
+							lines = String.join("\n", Files.readAllLines(f.toPath()));
 						}
 						
 						res += "Connection: close\n" +
