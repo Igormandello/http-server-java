@@ -6,6 +6,7 @@ import java.io.OutputStreamWriter;
 import java.io.File;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLDecoder;
 import java.nio.file.Files;
@@ -37,11 +38,10 @@ public class HTTPServer extends Thread {
 		while (this.running) {
 			try {
 				Socket client = socket.accept();
-				
 				BufferedReader reader = new BufferedReader(new InputStreamReader(client.getInputStream()));
-				OutputStreamWriter writer = new OutputStreamWriter(client.getOutputStream());
 				
 				String message = reader.readLine();
+				System.out.println(message);
 				if (message != null && !message.equals("")) {
 					String[] data = message.split(" ");
 					if (data.length == 3 && data[0].equals("GET") && data[2].equals("HTTP/1.1")) {
@@ -52,28 +52,44 @@ public class HTTPServer extends Thread {
 						}
 						
 						String fileRequested = URLDecoder.decode(data[1]);
-						System.out.println(fileRequested);
+						System.out.println("File requested: " + fileRequested);
 						
-						writer.write("HTTP/1.1 200 OK");
-						writer.write("Connection: close");
-						writer.write("Date: Sat, 01 jan 2001 12:00:00 GMT");
-						writer.write("Server: Apache/1.3.0 (Unix)");
-						writer.write("Last-Modified: Sun, 6 May 2017 09:30:00 GMT");
-						writer.write("Content-Length: 6821");
-						writer.write("Content-Type: text/html");
-						URL url = getClass().getResource("../example/example.html");
+						if (!fileRequested.endsWith(".html")) {
+							System.out.println("Only HTML files allowed");
+							continue;
+						}
+						
+						URL url = getClass().getResource("./").toURI().resolve("../example" + fileRequested).toURL();
 						File f = new File(url.getPath());
-						System.out.println(Files.readAllBytes(f.toPath()));
-						writer.flush();
+						
+						String res = "", lines = "";
+						if (!f.exists())
+							res = "HTTP/1.1 404 NOT FOUND\n";
+						else {
+							res = "HTTP/1.1 200 OK\n";
+							lines = String.join("", Files.readAllLines(f.toPath()));
+						}
+						
+						res += "Connection: close\n" +
+							"Date: Sat, 01 jan 2001 12:00:00 GMT\n" +
+							"Server: Apache/1.3.0 (Unix)\n" +
+							"Last-Modified: Sun, 6 May 2017 09:30:00 GMT\n" +
+							"Content-Length: \n" +
+							"Content-Type: text/html\n\n";
+						
+						res += lines;
+						
+						OutputStream out = client.getOutputStream();
+						out.write(res.getBytes());
+						out.flush();
+						out.close();
 					}
-				} else {
-					writer.write("Invalid request");
-					writer.flush();
-				}
+				} else
+					System.out.println("Invalid request");
 			} catch (IOException e) {
 				System.out.println(e);
 				this.terminate();
-			}
+			} catch (URISyntaxException e) {}
 			
 		}
 	}
