@@ -11,6 +11,7 @@ import java.net.URL;
 import java.net.URLDecoder;
 import java.nio.file.Files;
 import java.security.InvalidParameterException;
+import java.util.Base64;
 
 import sun.misc.IOUtils;
 
@@ -56,8 +57,9 @@ public class HTTPServer extends Thread {
 						System.out.println("File requested: " + fileRequested);
 						
 						OutputStream out = client.getOutputStream();
-						if (!fileRequested.endsWith(".html")) {
-							System.out.println("Only HTML files allowed");
+						boolean image = isImage(fileRequested);
+						if (!fileRequested.endsWith(".html") && !image) {
+							System.out.println("Only HTML or image files allowed");
 							String s = "HTTP/1.1 403 FORBIDDEN";
 							out.write(s.getBytes());
 							out.flush();
@@ -68,12 +70,13 @@ public class HTTPServer extends Thread {
 						URL url = getClass().getResource("./").toURI().resolve("../example" + fileRequested).toURL();
 						File f = new File(url.getPath());
 						
-						String res = "", lines = "";
+						String res = "";
+						byte[] fileData = null;
 						if (!f.exists())
 							res = "HTTP/1.1 404 NOT FOUND\n";
 						else {
 							res = "HTTP/1.1 200 OK\n";
-							lines = String.join("\n", Files.readAllLines(f.toPath()));
+							fileData = Files.readAllBytes(f.toPath());
 						}
 						
 						res += "Connection: close\n" +
@@ -83,7 +86,14 @@ public class HTTPServer extends Thread {
 							"Content-Length: \n" +
 							"Content-Type: text/html\n\n";
 						
-						res += lines;
+						if (image) {
+							String extension = fileRequested.substring(fileRequested.lastIndexOf('.'));
+							res += "<html><body style=\"display: grid; justify-content: center; align-content: center; margin: 0px; background: #0e0e0e;\"><img type=\"image/" + extension + "\" src=\"data:image/" + extension + ";base64,";
+							
+							res += new String(Base64.getEncoder().encode(fileData));
+							res += "\"></body></html>";
+						} else
+							res += String.join("\n", new String(fileData));
 						
 						out.write(res.getBytes());
 						out.flush();
@@ -102,5 +112,9 @@ public class HTTPServer extends Thread {
 	public void terminate() {
 		this.running = false;
 		this.interrupt();
+	}
+	
+	public boolean isImage(String s) {
+		return s.endsWith(".png") || s.endsWith(".jpg") || s.endsWith(".jpeg") || s.endsWith(".bmp") || s.endsWith(".gif");
 	}
 }
